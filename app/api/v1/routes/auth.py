@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.auth import (
     AdminLoginRequest,
+    CustomerLoginRequest,
     OTPSendRequest,
     OTPSendResponse,
     OTPVerifyRequest,
@@ -58,6 +59,26 @@ async def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db))
 
 
 @router.post(
+    "/customer/login",
+    response_model=TokenResponse,
+    responses={401: {"model": ErrorResponse}},
+    summary="Customer email + password login",
+)
+async def customer_login(request: CustomerLoginRequest, db: Session = Depends(get_db)):
+    """Customer logs in with email + password."""
+    service = AuthService(db)
+    user, error = service.login_customer(
+        email=request.email,
+        password=request.password,
+        tenant_slug=request.tenant_slug,
+    )
+    if error:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error)
+    tokens = service.create_tokens(user)
+    return TokenResponse(**tokens, user=UserProfileResponse.model_validate(user))
+
+
+@router.post(
     "/otp/send",
     response_model=OTPSendResponse,
     responses={400: {"model": ErrorResponse}},
@@ -67,8 +88,9 @@ async def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db))
 async def send_otp(request: OTPSendRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     otp, error = service.generate_otp(
-        phone=request.phone,
+        phone=request.phone or "",
         tenant_slug=request.tenant_slug,
+        email=request.email,
     )
 
     if error:
@@ -78,9 +100,9 @@ async def send_otp(request: OTPSendRequest, db: Session = Depends(get_db)):
         )
 
     # In development: return OTP in response for testing
-    # In production: remove this and only send via SMS
+    identifier = request.email or request.phone
     return OTPSendResponse(
-        phone=request.phone,
+        phone=identifier or "",
         message=f"OTP sent successfully. [DEV MODE: OTP is {otp}]",
     )
 
@@ -95,9 +117,10 @@ async def send_otp(request: OTPSendRequest, db: Session = Depends(get_db)):
 async def verify_otp(request: OTPVerifyRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     user, error = service.verify_otp(
-        phone=request.phone,
+        phone=request.phone or "",
         otp=request.otp,
         tenant_slug=request.tenant_slug,
+        email=request.email,
     )
 
     if error:
@@ -139,6 +162,59 @@ async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_
         **tokens,
         user=UserProfileResponse.model_validate(user),
     )
+
+
+@router.post(
+    "/forgot-password/send",
+    summary="Send password reset OTP to email",
+)
+async def send_reset_otp_route(request: OTPSendRequest, db: Session = Depends(get_db)):
+    service = AuthService(db)
+    otp, error = service.send_reset_otp(
+        email=request.email or "",
+        tenant_slug=request.tenant_slug,
+    )
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return {"success": True, "message": f"Reset OTP sent. [DEV: OTP is {otp}]"}
+
+
+@router.post(
+    "/forgot-password/reset",
+    summary="Verify OTP and set new password",
+)
+async def reset_password_route(request: OTPVerifyRequest, new_password: str = "", db: Session = Depends(get_db)):
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    service = AuthService(db)
+    success, error = service.reset_password(
+        email=request.email or "",
+        otp=request.otp,
+        new_password=new_password,
+        tenant_slug=request.tenant_slug,
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+    return {"success": True, "message": "Password reset successfully"}
+
+
+@router.patch(
+    "/profile",
+    response_model=UserProfileResponse,
+    summary="Update user profile (name, phone, password)",
+)
+async def update_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    name: str = None,
+    phone: str = None,
+    password: str = None,
+):
+    service = AuthService(db)
+    user, error = service.update_user_profile(current_user.id, name=name, phone=phone, password=password)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return UserProfileResponse.model_validate(user)
 
 
 @router.get(

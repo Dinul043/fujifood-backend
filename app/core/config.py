@@ -46,7 +46,7 @@ class Settings(BaseSettings):
 
     # Email
     SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
+    SMTP_PORT: int = 2525
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     FROM_EMAIL: str = "noreply@fujifood.com"

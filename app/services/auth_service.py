@@ -79,11 +79,41 @@ class AuthService:
 
         return user, None
 
+    # ─── Customer Email + Password Login ─────────────────────────
+
+    def login_customer(self, email: str, password: str, tenant_slug: str) -> Tuple[Optional[User], Optional[str]]:
+        """Authenticate customer with email + password."""
+        tenant = self._get_active_tenant(tenant_slug)
+        if not tenant:
+            return None, "Restaurant not found or inactive"
+
+        user = (
+            self.db.query(User)
+            .filter(
+                User.tenant_id == tenant.id,
+                User.email == email,
+                User.role == UserRole.CUSTOMER,
+                User.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if not user:
+            return None, "Invalid email or password"
+        if not user.password_hash:
+            return None, "Password not set. Please use OTP login or reset your password."
+        if user.status != UserStatus.ACTIVE:
+            return None, "Account is suspended"
+        if not verify_password(password, user.password_hash):
+            return None, "Invalid email or password"
+
+        return user, None
+
     # ─── Customer OTP Flow ─────────────────────────────────────────
 
-    def generate_otp(self, phone: str, tenant_slug: str) -> Tuple[Optional[str], Optional[str]]:
+    def generate_otp(self, phone: str, tenant_slug: str, email: str = None) -> Tuple[Optional[str], Optional[str]]:
         """
-        Generate OTP for customer login.
+        Generate OTP for customer login (email or phone).
+        Stores OTP in database. Sends via email if email provided.
 
         Returns:
             (otp_code, None) on success
@@ -96,21 +126,35 @@ class AuthService:
         # Generate 4-digit OTP
         otp = "".join(random.choices(string.digits, k=4))
 
-        # Store OTP (in-memory for dev, Redis for production)
-        _otp_store[f"{tenant.id}:{phone}"] = {
-            "otp": otp,
-            "expires_at": datetime.utcnow() + timedelta(minutes=5),
-            "tenant_id": tenant.id,
-        }
+        # Determine identifier
+        identifier = email if email else phone
+        if not identifier:
+            return None, "Either email or phone is required"
 
-        # TODO: Send OTP via SMS provider (Twilio, MSG91, etc.)
-        # For development, OTP is returned in the response (remove in production)
+        # Store OTP in database
+        from app.models.otp_token import OTPToken
+        from app.models.base import now_ist
+        otp_record = OTPToken(
+            tenant_id=tenant.id,
+            phone=identifier,
+            otp=otp,
+            purpose="login",
+            expires_at=now_ist() + timedelta(minutes=5),
+        )
+        self.db.add(otp_record)
+        self.db.commit()
+
+        # Send OTP via email if email provided
+        if email:
+            from app.utils.email import send_otp_email
+            send_otp_email(email, otp)
 
         return otp, None
 
-    def verify_otp(self, phone: str, otp: str, tenant_slug: str) -> Tuple[Optional[User], Optional[str]]:
+    def verify_otp(self, phone: str, otp: str, tenant_slug: str, email: str = None) -> Tuple[Optional[User], Optional[str]]:
         """
         Verify OTP and return/create customer user.
+        Checks OTP from database.
 
         Returns:
             (user, None) on success
@@ -120,29 +164,49 @@ class AuthService:
         if not tenant:
             return None, "Restaurant not found or inactive"
 
-        # Check OTP
-        key = f"{tenant.id}:{phone}"
-        stored = _otp_store.get(key)
+        identifier = email if email else phone
+        if not identifier:
+            return None, "Either email or phone is required"
 
-        if not stored:
-            return None, "OTP not found. Please request a new one."
+        from app.models.otp_token import OTPToken
+        from app.models.base import now_ist
+        otp_record = (
+            self.db.query(OTPToken)
+            .filter(
+                OTPToken.tenant_id == tenant.id,
+                OTPToken.phone == identifier,
+                OTPToken.is_used == False,
+                OTPToken.expires_at > now_ist(),
+            )
+            .order_by(OTPToken.created_at.desc())
+            .first()
+        )
 
-        if datetime.utcnow() > stored["expires_at"]:
-            del _otp_store[key]
-            return None, "OTP expired. Please request a new one."
+        if not otp_record:
+            return None, "OTP not found or expired. Please request a new one."
 
-        if stored["otp"] != otp:
+        if otp_record.otp != otp:
+            otp_record.attempts += 1
+            self.db.commit()
+            if otp_record.attempts >= 3:
+                otp_record.is_used = True
+                self.db.commit()
+                return None, "Too many failed attempts. Please request a new OTP."
             return None, "Invalid OTP"
 
-        # OTP verified — clean up
-        del _otp_store[key]
+        # OTP verified — mark as used
+        otp_record.is_used = True
+        self.db.commit()
 
-        # Find or create customer
+        # Find or create customer (use phone or email as identifier)
+        lookup_field = User.email if email else User.phone
+        lookup_value = email if email else phone
+
         user = (
             self.db.query(User)
             .filter(
                 User.tenant_id == tenant.id,
-                User.phone == phone,
+                lookup_field == lookup_value,
                 User.role == UserRole.CUSTOMER,
                 User.deleted_at.is_(None),
             )
@@ -150,10 +214,24 @@ class AuthService:
         )
 
         if not user:
-            # First-time customer — create account
+            # First-time customer — check if email already exists (prevent duplicates)
+            existing = (
+                self.db.query(User)
+                .filter(
+                    User.tenant_id == tenant.id,
+                    User.email == email,
+                    User.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if existing:
+                return existing, None  # Return existing user (they can login)
+
+            # Create new customer
             user = User(
                 tenant_id=tenant.id,
-                phone=phone,
+                phone=phone or "",
+                email=email,
                 role=UserRole.CUSTOMER,
                 status=UserStatus.ACTIVE,
                 phone_verified=True,
@@ -250,6 +328,103 @@ class AuthService:
         self.db.refresh(user)
         return user
 
+    # ─── Forgot Password: Send Reset OTP ─────────────────────────
+
+    def send_reset_otp(self, email: str, tenant_slug: str) -> Tuple[Optional[str], Optional[str]]:
+        """Send OTP for password reset. Uses dedicated password_reset_tokens table."""
+        tenant = self._get_active_tenant(tenant_slug)
+        if not tenant:
+            return None, "Restaurant not found or inactive"
+
+        user = (
+            self.db.query(User)
+            .filter(User.tenant_id == tenant.id, User.email == email, User.deleted_at.is_(None))
+            .first()
+        )
+        if not user:
+            return None, "No account found with this email"
+
+        otp = "".join(random.choices(string.digits, k=4))
+
+        from app.models.password_reset_token import PasswordResetToken
+        from app.models.base import now_ist
+        reset_token = PasswordResetToken(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            email=email,
+            otp=otp,
+            expires_at=now_ist() + timedelta(minutes=10),
+        )
+        self.db.add(reset_token)
+        self.db.commit()
+
+        from app.utils.email import send_otp_email
+        send_otp_email(email, otp)
+
+        return otp, None
+
+    # ─── Forgot Password: Verify & Reset ──────────────────────────
+
+    def reset_password(self, email: str, otp: str, new_password: str, tenant_slug: str) -> Tuple[bool, Optional[str]]:
+        """Verify reset OTP and update password. Uses password_reset_tokens table."""
+        tenant = self._get_active_tenant(tenant_slug)
+        if not tenant:
+            return False, "Restaurant not found"
+
+        from app.models.password_reset_token import PasswordResetToken
+        from app.models.base import now_ist
+        reset_record = (
+            self.db.query(PasswordResetToken)
+            .filter(
+                PasswordResetToken.tenant_id == tenant.id,
+                PasswordResetToken.email == email,
+                PasswordResetToken.is_used == False,
+                PasswordResetToken.expires_at > now_ist(),
+            )
+            .order_by(PasswordResetToken.created_at.desc())
+            .first()
+        )
+
+        if not reset_record:
+            return False, "Reset OTP expired or not found"
+        if reset_record.otp != otp:
+            reset_record.attempts += 1
+            self.db.commit()
+            if reset_record.attempts >= 3:
+                reset_record.is_used = True
+                self.db.commit()
+                return False, "Too many attempts. Request a new OTP."
+            return False, "Invalid OTP"
+
+        reset_record.is_used = True
+
+        user = self.db.query(User).filter(User.id == reset_record.user_id).first()
+        if not user:
+            return False, "User not found"
+
+        user.password_hash = hash_password(new_password)
+        self.db.commit()
+        return True, None
+
+    # ─── Update Profile ───────────────────────────────────────────
+
+    def update_user_profile(self, user_id: int, name: str = None, phone: str = None, password: str = None) -> Tuple[Optional[User], Optional[str]]:
+        """Update user's name, phone, or password."""
+        user = self.db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
+        if not user:
+            return None, "User not found"
+
+        if name:
+            user.name = name
+        if phone:
+            user.phone = phone
+        if password:
+            user.password_hash = hash_password(password)
+
+        self.db.commit()
+        self.db.refresh(user)
+        return user, None
+
     # ─── Helpers ───────────────────────────────────────────────────
 
     def _get_active_tenant(self, slug: str) -> Optional[Tenant]:
@@ -265,5 +440,4 @@ class AuthService:
         )
 
 
-# ─── In-memory OTP store (replace with Redis in production) ────────
-_otp_store: dict = {}
+# OTP is now stored in database (otp_tokens table)

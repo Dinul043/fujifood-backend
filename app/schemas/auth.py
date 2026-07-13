@@ -22,13 +22,21 @@ class AdminLoginRequest(BaseModel):
     tenant_slug: str = Field(..., min_length=2, max_length=100, description="Restaurant tenant slug")
 
 
+class CustomerLoginRequest(BaseModel):
+    """Customer login — email + password."""
+    email: str = Field(..., max_length=255, description="Customer email")
+    password: str = Field(..., min_length=6, description="Account password")
+    tenant_slug: str = Field(default="a2b", min_length=2, max_length=100)
+
+
 # ═══════════════════════════════════════════════════
 #  Customer — OTP Flow
 # ═══════════════════════════════════════════════════
 
 class OTPSendRequest(BaseModel):
-    """Request to send OTP to customer's phone."""
-    phone: str = Field(..., min_length=10, max_length=15, description="Customer phone number")
+    """Request to send OTP to customer's email or phone."""
+    email: Optional[str] = Field(None, max_length=255, description="Customer email (preferred for dev)")
+    phone: Optional[str] = Field(None, min_length=10, max_length=15, description="Customer phone number")
     tenant_slug: str = Field(..., min_length=2, max_length=100, description="Restaurant tenant slug")
 
 
@@ -42,7 +50,8 @@ class OTPSendResponse(BaseModel):
 
 class OTPVerifyRequest(BaseModel):
     """Verify OTP and authenticate customer."""
-    phone: str = Field(..., min_length=10, max_length=15)
+    email: Optional[str] = Field(None, max_length=255)
+    phone: Optional[str] = Field(None, min_length=10, max_length=15)
     otp: str = Field(..., min_length=4, max_length=6, description="OTP code")
     tenant_slug: str = Field(..., min_length=2, max_length=100)
 
