@@ -36,10 +36,10 @@ class Tenant(BaseModel):
     custom_domain    = Column(String(255), nullable=True, unique=True)   # "order.a2b.com"
 
     # Status
-    status           = Column(Enum(TenantStatus), default=TenantStatus.PENDING, nullable=False, index=True)
+    status           = Column(String(20), default="pending", nullable=False, index=True)
 
     # Subscription
-    plan             = Column(Enum(TenantPlan), default=TenantPlan.TRIAL, nullable=False)
+    plan             = Column(String(20), default="trial", nullable=False)
     trial_ends_at    = Column(String(50), nullable=True)   # ISO datetime string
     subscription_ends_at = Column(String(50), nullable=True)
 

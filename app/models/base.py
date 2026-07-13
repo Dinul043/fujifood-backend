@@ -1,51 +1,70 @@
 """
-Base model for all FujiFood database tables.
+Base models — Enterprise-grade foundation for all database tables.
 
 Every table gets:
-  id          - Auto-increment primary key
-  tenant_id   - Multi-tenancy isolation (NULL for platform-level tables)
-  created_at  - Record creation timestamp
-  updated_at  - Last modification timestamp
-  deleted_at  - Soft delete timestamp (NULL = active)
+  id            — Auto-increment internal PK
+  uuid          — Public-facing unique identifier (never expose sequential IDs)
+  created_at    — Record creation timestamp
+  updated_at    — Last modification timestamp
+  deleted_at    — Soft delete (NULL = active)
+  created_by    — Who created this record (user ID)
+  updated_by    — Who last modified (user ID)
+
+Tenant-scoped tables additionally get:
+  tenant_id     — Multi-tenancy row-level isolation
 """
+import uuid as uuid_lib
 from sqlalchemy import Column, Integer, String, DateTime, func
-from sqlalchemy.orm import declared_attr
+from sqlalchemy.dialects.mysql import CHAR
 from app.core.database import Base
 
 
+def generate_uuid() -> str:
+    """Generate a new UUID4 string."""
+    return str(uuid_lib.uuid4())
+
+
 class TimestampMixin:
-    """Adds created_at and updated_at to any model."""
+    """Audit timestamps on every record."""
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class SoftDeleteMixin:
-    """Adds soft delete support. deleted_at=NULL means active."""
-    deleted_at = Column(DateTime, nullable=True, default=None)
+    """Soft delete — deleted_at=NULL means active."""
+    deleted_at = Column(DateTime, nullable=True, default=None, index=True)
+
+
+class AuditMixin:
+    """Track who created/modified records."""
+    created_by = Column(Integer, nullable=True)  # user.id who created
+    updated_by = Column(Integer, nullable=True)  # user.id who last modified
 
 
 class TenantMixin:
-    """Adds tenant_id for multi-tenancy row-level isolation."""
-    tenant_id = Column(Integer, nullable=True, index=True)
+    """Row-level tenant isolation."""
+    tenant_id = Column(Integer, nullable=False, index=True)
 
 
-class BaseModel(Base, TimestampMixin, SoftDeleteMixin):
+class BaseModel(Base, TimestampMixin, SoftDeleteMixin, AuditMixin):
     """
-    Abstract base for all platform-level tables (not tenant-scoped).
-    Example: tenants, subscriptions, admin_users
+    Abstract base for platform-level tables (not tenant-scoped).
+    Example: tenants, platform_settings
     """
     __abstract__ = True
 
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    id   = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(CHAR(36), default=generate_uuid, unique=True, nullable=False, index=True)
 
 
-class TenantBaseModel(Base, TimestampMixin, SoftDeleteMixin, TenantMixin):
+class TenantBaseModel(Base, TimestampMixin, SoftDeleteMixin, AuditMixin, TenantMixin):
     """
-    Abstract base for all tenant-scoped tables.
+    Abstract base for tenant-scoped tables.
     Example: restaurants, menus, orders, customers
 
     All queries MUST filter by tenant_id.
     """
     __abstract__ = True
 
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    id   = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(CHAR(36), default=generate_uuid, unique=True, nullable=False, index=True)

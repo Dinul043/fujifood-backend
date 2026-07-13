@@ -43,7 +43,7 @@ class Order(TenantBaseModel):
 
     tenant_id       = Column(Integer, ForeignKey("tenants.id"),    nullable=False, index=True)
     restaurant_id   = Column(Integer, ForeignKey("restaurants.id"), nullable=False, index=True)
-    customer_id     = Column(Integer, ForeignKey("customers.id"),   nullable=False, index=True)
+    customer_id     = Column(Integer, ForeignKey("users.id"),   nullable=False, index=True)
 
     # Human-readable order number shown to customer and restaurant
     order_number    = Column(String(50), nullable=False, unique=True, index=True)
@@ -85,7 +85,7 @@ class Order(TenantBaseModel):
 
     # Relationships
     items    = relationship("OrderItem", back_populates="order", lazy="select")
-    customer = relationship("Customer",  backref="orders", foreign_keys=[customer_id])
+    customer = relationship("User",  backref="orders", foreign_keys=[customer_id])
 
     def __repr__(self):
         return f"<Order id={self.id} number={self.order_number} status={self.status}>"
