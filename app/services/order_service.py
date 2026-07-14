@@ -194,7 +194,7 @@ class OrderService:
     def cancel_order(
         self, order_id: int, customer_id: int
     ) -> Tuple[Optional[Order], Optional[str]]:
-        """Customer cancels their own order (only if still pending)."""
+        """Customer cancels their own order. Auto-refund if paid online."""
         order = (
             self.db.query(Order)
             .filter(
@@ -208,8 +208,17 @@ class OrderService:
         if not order:
             return None, "Order not found"
 
-        if order.status != OrderStatus.PENDING:
-            return None, "Only pending orders can be cancelled"
+        # Can only cancel pending or confirmed orders
+        if order.status not in [OrderStatus.PENDING, "confirmed"]:
+            return None, "Only pending or confirmed orders can be cancelled"
+
+        # If paid online, process refund
+        if order.payment_method == "online" and order.payment_status == "paid":
+            from app.services.payment_service import PaymentService
+            payment_svc = PaymentService(self.db)
+            success, err = payment_svc.refund_payment(order_id, self.tenant_id)
+            if not success:
+                return None, f"Cancellation failed: {err}"
 
         order.status = OrderStatus.CANCELLED
         self.db.commit()

@@ -3,6 +3,7 @@ API v1 Router — aggregates all route modules.
 """
 from fastapi import APIRouter
 from app.api.v1.routes import auth, tenants, themes, restaurants, menu, orders
+from app.api.v1.routes import payment
 
 api_router = APIRouter()
 
@@ -23,6 +24,9 @@ api_router.include_router(menu.router, prefix="/menu", tags=["Menu"])
 
 # Order management
 api_router.include_router(orders.router, prefix="/orders", tags=["Orders"])
+
+# Payment (Razorpay)
+api_router.include_router(payment.router, prefix="/payment", tags=["Payment"])
 
 
 @api_router.get("/ping", tags=["Health"])
