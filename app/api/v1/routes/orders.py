@@ -151,7 +151,7 @@ async def cancel_my_order(
 )
 async def list_restaurant_orders(
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=500),
     status_filter: Optional[str] = Query(default=None, alias="status"),
     current_user: User = Depends(require_role("restaurant_admin")),
     db: Session = Depends(get_db),

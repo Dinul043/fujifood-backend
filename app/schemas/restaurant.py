@@ -75,18 +75,18 @@ class RestaurantResponse(BaseModel):
     fssai_number: Optional[str] = None
 
     # Location
-    address_line1: str
+    address_line1: Optional[str] = None
     address_line2: Optional[str] = None
-    city: str
-    state: str
-    pincode: str
-    country: str
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    country: Optional[str] = "India"
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
     # Contact
-    phone: str
-    email: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
     website: Optional[str] = None
 
     # Branding
@@ -119,7 +119,13 @@ class RestaurantPublicResponse(BaseModel):
     name: str
     description: Optional[str] = None
     cuisine_type: Optional[str] = None
-    city: str
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     logo_url: Optional[str] = None
     banner_url: Optional[str] = None
     delivery_radius_km: float

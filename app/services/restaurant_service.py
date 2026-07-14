@@ -40,7 +40,7 @@ class RestaurantService:
     def get_public_by_slug(self, slug: str) -> Optional[Restaurant]:
         """
         Get restaurant by tenant slug — public storefront use.
-        Only returns if tenant is active and restaurant is published.
+        Only returns if tenant is active.
         """
         tenant = (
             self.db.query(Tenant)
@@ -55,7 +55,7 @@ class RestaurantService:
             return None
 
         restaurant = self.get_by_tenant_id(tenant.id)
-        if not restaurant or not restaurant.is_published:
+        if not restaurant:
             return None
 
         return restaurant

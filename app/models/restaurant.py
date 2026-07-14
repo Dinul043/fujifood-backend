@@ -25,18 +25,18 @@ class Restaurant(TenantBaseModel):
     fssai_number    = Column(String(20), nullable=True)    # Food license
 
     # Location
-    address_line1   = Column(String(300), nullable=False)
+    address_line1   = Column(String(300), nullable=True)
     address_line2   = Column(String(300), nullable=True)
-    city            = Column(String(100), nullable=False)
-    state           = Column(String(100), nullable=False)
-    pincode         = Column(String(10), nullable=False)
-    country         = Column(String(50), default="India", nullable=False)
+    city            = Column(String(100), nullable=True)
+    state           = Column(String(100), nullable=True)
+    pincode         = Column(String(10), nullable=True)
+    country         = Column(String(50), default="India", nullable=True)
     latitude        = Column(Float, nullable=True)
     longitude       = Column(Float, nullable=True)
 
     # Contact
-    phone           = Column(String(20), nullable=False)
-    email           = Column(String(255), nullable=False)
+    phone           = Column(String(20), nullable=True)
+    email           = Column(String(255), nullable=True)
     website         = Column(String(255), nullable=True)
 
     # Branding
