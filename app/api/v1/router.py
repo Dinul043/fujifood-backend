@@ -3,7 +3,7 @@ API v1 Router — aggregates all route modules.
 """
 from fastapi import APIRouter
 from app.api.v1.routes import auth, tenants, themes, restaurants, menu, orders
-from app.api.v1.routes import payment, geocode
+from app.api.v1.routes import payment, geocode, staff
 
 api_router = APIRouter()
 
@@ -30,6 +30,9 @@ api_router.include_router(payment.router, prefix="/payment", tags=["Payment"])
 
 # Geolocation
 api_router.include_router(geocode.router, prefix="/geo", tags=["Geolocation"])
+
+# Staff management (owner only)
+api_router.include_router(staff.router, prefix="/staff", tags=["Staff Management"])
 
 
 @api_router.get("/ping", tags=["Health"])
