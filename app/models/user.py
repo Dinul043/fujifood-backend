@@ -57,6 +57,7 @@ class User(TenantBaseModel):
     # Flags
     phone_verified = Column(Boolean, default=False, nullable=False)
     is_active      = Column(Boolean, default=True, nullable=False)
+    is_owner       = Column(Boolean, default=False, nullable=False)  # Owner vs staff admin
 
     # Relationships
     tenant = relationship("Tenant", backref="users", foreign_keys=[tenant_id])

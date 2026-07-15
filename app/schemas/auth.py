@@ -87,6 +87,7 @@ class UserProfileResponse(BaseModel):
     email: Optional[str] = None
     role: str  # "customer" | "restaurant_admin"
     status: str  # "active" | "suspended"
+    is_owner: bool = False  # True = owner access (revenue, history, reports)
 
     class Config:
         from_attributes = True

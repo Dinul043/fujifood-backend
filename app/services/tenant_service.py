@@ -116,7 +116,7 @@ class TenantService:
             )
             self.db.add(theme)
 
-            # Step 4: Create Restaurant Admin User
+            # Step 4: Create Restaurant Admin User (owner by default during provisioning)
             admin_user = User(
                 tenant_id=tenant.id,
                 name=request.admin_name,
@@ -127,6 +127,7 @@ class TenantService:
                 status=UserStatus.ACTIVE,
                 phone_verified=True,
                 is_active=True,
+                is_owner=True,
             )
             self.db.add(admin_user)
 
