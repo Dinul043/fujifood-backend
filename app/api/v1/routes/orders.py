@@ -28,6 +28,7 @@ from app.schemas.order import (
 )
 from app.schemas.auth import ErrorResponse
 from app.services.order_service import OrderService
+from app.services.websocket_manager import ws_manager
 
 router = APIRouter()
 
@@ -89,7 +90,20 @@ async def place_order(
     order, error = service.place_order(current_user.id, request)
     if error:
         raise HTTPException(status_code=400, detail=error)
-    return _build_order_response(order)
+
+    response = _build_order_response(order)
+
+    # Notify admin via WebSocket: new order placed
+    await ws_manager.notify_admin(current_user.tenant_id, "new_order", {
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "total_amount": order.total_amount,
+        "items_count": len(order.items),
+        "payment_method": order.payment_method,
+        "created_at": str(order.created_at),
+    })
+
+    return response
 
 
 # ═══════════════════════════════════════════════════
@@ -136,7 +150,17 @@ async def cancel_my_order(
     order, error = service.cancel_order(order_id, current_user.id)
     if error:
         raise HTTPException(status_code=400, detail=error)
-    return _build_order_response(order)
+
+    response = _build_order_response(order)
+
+    # Notify admin via WebSocket: order cancelled by customer
+    await ws_manager.notify_admin(current_user.tenant_id, "order_cancelled", {
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "total_amount": order.total_amount,
+    })
+
+    return response
 
 
 # ═══════════════════════════════════════════════════
@@ -190,4 +214,15 @@ async def update_order_status(
     if error:
         status_code = 404 if "not found" in error else 400
         raise HTTPException(status_code=status_code, detail=error)
-    return _build_order_response(order)
+
+    response = _build_order_response(order)
+
+    # Notify customer via WebSocket: order status changed
+    await ws_manager.notify_customer(order.customer_id, "order_status_updated", {
+        "order_id": order.id,
+        "order_number": order.order_number,
+        "status": order.status,
+        "total_amount": order.total_amount,
+    })
+
+    return response
