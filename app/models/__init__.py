@@ -15,6 +15,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.user_address import UserAddress
 from app.models.business_hours import BusinessHours
 from app.models.password_reset_token import PasswordResetToken
+from app.models.review import Review
 
 __all__ = [
     "Base",
