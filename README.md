@@ -67,15 +67,6 @@ FROM_EMAIL=noreply@fujifood.com
 # Razorpay (test keys)
 RAZORPAY_KEY_ID=rzp_test_xxxxx
 RAZORPAY_KEY_SECRET=your_razorpay_secret
-
-# AWS S3 (optional — images served locally in dev)
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_S3_BUCKET=fujifood-media
-AWS_REGION=ap-south-1
-
-# Redis (optional — for future caching)
-REDIS_URL=redis://localhost:6379
 ```
 
 ## Tech Stack
@@ -89,7 +80,6 @@ REDIS_URL=redis://localhost:6379
 - **Real-time:** WebSocket (native FastAPI)
 - **Email:** SMTP (Mailtrap in dev)
 - **File Upload:** Local disk (uploads/ directory)
-
 ## Folder Structure
 
 ```
@@ -303,8 +293,7 @@ Tenant: a2b
 ## Running in Production
 
 ```bash
-# Use gunicorn with uvicorn workers
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ## Common Issues

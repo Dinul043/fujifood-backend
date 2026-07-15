@@ -35,15 +35,6 @@ class Settings(BaseSettings):
         "https://dashboard.fujifood.com",
     ]
 
-    # Redis (future)
-    REDIS_URL: str = "redis://localhost:6379"
-
-    # AWS S3
-    AWS_ACCESS_KEY_ID: str = ""
-    AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_S3_BUCKET: str = "fujifood-media"
-    AWS_REGION: str = "ap-south-1"
-
     # Email
     SMTP_HOST: str = ""
     SMTP_PORT: int = 2525
