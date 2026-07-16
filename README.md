@@ -4,6 +4,8 @@ A multi-tenant restaurant platform API built with FastAPI, SQLAlchemy, and MySQL
 
 ## Quick Setup (5 minutes)
 
+**Prerequisites:** Python 3.10+, MySQL 8.0+
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/Dinul043/fujifood-backend.git
@@ -14,7 +16,7 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 # source venv/bin/activate   # Mac/Linux
 
-# 3. Install dependencies
+# 3. Install ALL dependencies
 pip install -r requirements.txt
 
 # 4. Create environment file
@@ -24,7 +26,7 @@ cp .env.example .env
 # 5. Create MySQL database
 mysql -u root -p -e "CREATE DATABASE fujifood CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# 6. Run database migrations
+# 6. Run database migrations (creates all 16 tables)
 python -m alembic upgrade head
 
 # 7. Seed demo data (creates tenant, restaurant, admin user)
@@ -36,6 +38,11 @@ python main.py
 
 API available at [http://localhost:8000](http://localhost:8000)
 Docs at [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
+
+**If you get errors:**
+- `bcrypt` install fails on Windows: `pip install bcrypt --only-binary :all:`
+- MySQL connection refused: ensure MySQL is running and password in `.env` is correct
+- `ModuleNotFoundError`: run `pip install -r requirements.txt` again
 
 ## Environment Variables (.env)
 

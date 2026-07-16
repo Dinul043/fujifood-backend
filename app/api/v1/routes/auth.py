@@ -91,6 +91,7 @@ async def send_otp(request: OTPSendRequest, db: Session = Depends(get_db)):
         phone=request.phone or "",
         tenant_slug=request.tenant_slug,
         email=request.email,
+        is_signup=request.is_signup,
     )
 
     if error:

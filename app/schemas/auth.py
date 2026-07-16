@@ -38,6 +38,7 @@ class OTPSendRequest(BaseModel):
     email: Optional[str] = Field(None, max_length=255, description="Customer email (preferred for dev)")
     phone: Optional[str] = Field(None, min_length=10, max_length=15, description="Customer phone number")
     tenant_slug: str = Field(..., min_length=2, max_length=100, description="Restaurant tenant slug")
+    is_signup: bool = Field(default=False, description="True if this is a new account signup")
 
 
 class OTPSendResponse(BaseModel):

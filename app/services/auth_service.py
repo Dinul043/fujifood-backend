@@ -110,10 +110,11 @@ class AuthService:
 
     # ─── Customer OTP Flow ─────────────────────────────────────────
 
-    def generate_otp(self, phone: str, tenant_slug: str, email: str = None) -> Tuple[Optional[str], Optional[str]]:
+    def generate_otp(self, phone: str, tenant_slug: str, email: str = None, is_signup: bool = False) -> Tuple[Optional[str], Optional[str]]:
         """
         Generate OTP for customer login (email or phone).
         Stores OTP in database. Sends via email if email provided.
+        If is_signup=True, rejects existing emails.
 
         Returns:
             (otp_code, None) on success
@@ -123,13 +124,28 @@ class AuthService:
         if not tenant:
             return None, "Restaurant not found or inactive"
 
-        # Generate 4-digit OTP
-        otp = "".join(random.choices(string.digits, k=4))
-
         # Determine identifier
         identifier = email if email else phone
         if not identifier:
             return None, "Either email or phone is required"
+
+        # If signup mode, check if email already has an account
+        if is_signup and email:
+            existing = (
+                self.db.query(User)
+                .filter(
+                    User.tenant_id == tenant.id,
+                    User.email == email,
+                    User.role == UserRole.CUSTOMER,
+                    User.deleted_at.is_(None),
+                )
+                .first()
+            )
+            if existing:
+                return None, "An account with this email already exists. Please sign in instead."
+
+        # Generate 4-digit OTP
+        otp = "".join(random.choices(string.digits, k=4))
 
         # Store OTP in database
         from app.models.otp_token import OTPToken
@@ -169,14 +185,12 @@ class AuthService:
             return None, "Either email or phone is required"
 
         from app.models.otp_token import OTPToken
-        from app.models.base import now_ist
         otp_record = (
             self.db.query(OTPToken)
             .filter(
                 OTPToken.tenant_id == tenant.id,
                 OTPToken.phone == identifier,
                 OTPToken.is_used == False,
-                OTPToken.expires_at > now_ist(),
             )
             .order_by(OTPToken.created_at.desc())
             .first()
