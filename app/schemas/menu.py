@@ -143,6 +143,8 @@ class MenuItemResponse(BaseModel):
     is_spicy: bool
     is_available: bool
     sort_order: int
+    avg_rating: float = 0.0
+    rating_count: int = 0
     calories: Optional[int] = None
     allergens: Optional[str] = None
     tags: Optional[str] = None

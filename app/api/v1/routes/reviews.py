@@ -33,6 +33,7 @@ class CreateReviewRequest(BaseModel):
     order_id: int
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = Field(None, max_length=1000)
+    item_ratings: Optional[list] = None  # [{menu_item_id: int, rating: int}]
 
 
 class ReviewResponse(BaseModel):
@@ -86,6 +87,31 @@ async def create_review(
         customer_name=current_user.name,
     )
     db.add(review)
+
+    # Update per-item ratings if provided
+    from app.models.menu import MenuItem
+    if request.item_ratings:
+        for ir in request.item_ratings:
+            item_id = ir.get('menu_item_id') if isinstance(ir, dict) else None
+            item_rating = ir.get('rating') if isinstance(ir, dict) else None
+            if item_id and item_rating and 1 <= item_rating <= 5:
+                menu_item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+                if menu_item:
+                    # Running average: new_avg = (old_avg * count + new_rating) / (count + 1)
+                    total = menu_item.avg_rating * menu_item.rating_count + item_rating
+                    menu_item.rating_count += 1
+                    menu_item.avg_rating = round(total / menu_item.rating_count, 1)
+    else:
+        # If no per-item ratings, apply overall rating to all items in the order
+        from app.models.order import OrderItem as OI
+        order_items = db.query(OI).filter(OI.order_id == request.order_id).all()
+        for oi in order_items:
+            menu_item = db.query(MenuItem).filter(MenuItem.id == oi.menu_item_id).first()
+            if menu_item:
+                total = menu_item.avg_rating * menu_item.rating_count + request.rating
+                menu_item.rating_count += 1
+                menu_item.avg_rating = round(total / menu_item.rating_count, 1)
+
     db.commit()
     db.refresh(review)
 

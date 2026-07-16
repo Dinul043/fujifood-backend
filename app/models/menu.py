@@ -74,6 +74,10 @@ class MenuItem(TenantBaseModel):
     is_available    = Column(Boolean, default=True, nullable=False)
     sort_order      = Column(Integer, default=0, nullable=False)
 
+    # Ratings (updated when customers review)
+    avg_rating      = Column(Float, default=0.0, nullable=False)
+    rating_count    = Column(Integer, default=0, nullable=False)
+
     # Nutritional info (optional)
     calories        = Column(Integer, nullable=True)
     allergens       = Column(String(500), nullable=True)  # Comma-separated
