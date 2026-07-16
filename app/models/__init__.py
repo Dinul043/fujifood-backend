@@ -16,6 +16,7 @@ from app.models.user_address import UserAddress
 from app.models.business_hours import BusinessHours
 from app.models.password_reset_token import PasswordResetToken
 from app.models.review import Review
+from app.models.cart import CartItem
 
 __all__ = [
     "Base",
