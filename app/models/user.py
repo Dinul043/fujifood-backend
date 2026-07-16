@@ -62,10 +62,9 @@ class User(TenantBaseModel):
     # Relationships
     tenant = relationship("Tenant", backref="users", foreign_keys=[tenant_id])
 
-    # Composite unique index: one phone number per tenant
-    # (same phone can exist in different restaurants as different customers)
+    # Composite index: phone lookups per tenant (not unique — family can share phone)
     __table_args__ = (
-        Index("idx_users_tenant_phone", "tenant_id", "phone", unique=True),
+        Index("idx_users_tenant_phone", "tenant_id", "phone", unique=False),
         Index("idx_users_tenant_role", "tenant_id", "role"),
     )
 
