@@ -147,9 +147,16 @@ class AuthService:
         # Generate 4-digit OTP
         otp = "".join(random.choices(string.digits, k=4))
 
-        # Store OTP in database
+        # Invalidate all previous unused OTPs for this identifier
         from app.models.otp_token import OTPToken
         from app.models.base import now_ist
+        self.db.query(OTPToken).filter(
+            OTPToken.tenant_id == tenant.id,
+            OTPToken.phone == identifier,
+            OTPToken.is_used == False,
+        ).update({"is_used": True})
+
+        # Store new OTP
         otp_record = OTPToken(
             tenant_id=tenant.id,
             phone=identifier,
@@ -207,6 +214,12 @@ class AuthService:
                 self.db.commit()
                 return None, "Too many failed attempts. Please request a new OTP."
             return None, "Invalid OTP"
+            self.db.commit()
+            if otp_record.attempts >= 3:
+                otp_record.is_used = True
+                self.db.commit()
+                return None, "Too many failed attempts. Please request a new OTP."
+            return None, "Invalid OTP"
 
         # OTP verified — mark as used
         otp_record.is_used = True
@@ -241,10 +254,10 @@ class AuthService:
             if existing:
                 return existing, None  # Return existing user (they can login)
 
-            # Create new customer
+            # Create new customer — use email as phone if phone is empty (unique constraint)
             user = User(
                 tenant_id=tenant.id,
-                phone=phone or "",
+                phone=phone if phone else email,
                 email=email,
                 role=UserRole.CUSTOMER,
                 status=UserStatus.ACTIVE,
