@@ -101,6 +101,8 @@ class OrderResponse(BaseModel):
     estimated_delivery_time: Optional[int] = None
     customer_notes: Optional[str] = None
     restaurant_notes: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_name: Optional[str] = None
     items: List[OrderItemResponse] = []
     created_at: str
     accepted_at: Optional[str] = None

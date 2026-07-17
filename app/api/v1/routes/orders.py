@@ -33,7 +33,7 @@ from app.services.websocket_manager import ws_manager
 router = APIRouter()
 
 
-def _build_order_response(order) -> OrderResponse:
+def _build_order_response(order, customer=None) -> OrderResponse:
     """Helper to build OrderResponse from an Order model."""
     return OrderResponse(
         id=order.id,
@@ -51,6 +51,8 @@ def _build_order_response(order) -> OrderResponse:
         estimated_delivery_time=order.estimated_delivery_time,
         customer_notes=order.customer_notes,
         restaurant_notes=order.restaurant_notes,
+        customer_phone=customer.phone if customer else None,
+        customer_name=customer.name if customer else None,
         items=[
             OrderItemResponse(
                 id=i.id,
@@ -184,8 +186,15 @@ async def list_restaurant_orders(
     orders, total = service.list_restaurant_orders(
         page, page_size, status_filter
     )
+    # Get customer info for each order
+    customer_map = {}
+    customer_ids = set(o.customer_id for o in orders)
+    if customer_ids:
+        customers = db.query(User).filter(User.id.in_(customer_ids)).all()
+        customer_map = {c.id: c for c in customers}
+
     return OrderListResponse(
-        orders=[_build_order_response(o) for o in orders],
+        orders=[_build_order_response(o, customer_map.get(o.customer_id)) for o in orders],
         total=total,
         page=page,
         page_size=page_size,
