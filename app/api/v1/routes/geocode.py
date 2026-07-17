@@ -61,10 +61,10 @@ async def check_delivery_by_address(request: AddressCheckRequest, db: Session = 
             )
             results = resp.json()
     except:
-        return {"deliverable": True, "message": "Could not verify address, allowing order"}
+        return {"deliverable": False, "message": "Could not verify delivery address. Please use 'Use My Location' button."}
 
     if not results:
-        return {"deliverable": True, "message": "Address could not be geocoded, allowing order"}
+        return {"deliverable": False, "message": "We could not verify this address. Please use 'Use My Location' or enter a more specific address."}
 
     lat = float(results[0]["lat"])
     lon = float(results[0]["lon"])
