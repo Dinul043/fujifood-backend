@@ -12,7 +12,7 @@ Admin:
   GET    /reviews/manage        → List all reviews
   DELETE /reviews/manage/{id}   → Delete a review
 """
-from typing import Optional
+from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -33,7 +33,7 @@ class CreateReviewRequest(BaseModel):
     order_id: int
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = Field(None, max_length=1000)
-    item_ratings: Optional[list] = None  # [{menu_item_id: int, rating: int}]
+    item_ratings: Optional[list[Any]] = None  # [{menu_item_id: int, rating: int}]
 
 
 class ReviewResponse(BaseModel):

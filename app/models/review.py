@@ -12,7 +12,7 @@ class Review(TenantBaseModel):
     __tablename__ = "reviews"
 
     tenant_id    = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
-    order_id     = Column(Integer, ForeignKey("orders.id"), nullable=False, unique=True)
+    order_id     = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
     customer_id  = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     rating       = Column(Integer, nullable=False)  # 1-5 stars
