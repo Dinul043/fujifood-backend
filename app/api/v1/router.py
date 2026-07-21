@@ -3,7 +3,7 @@ API v1 Router — aggregates all route modules.
 """
 from fastapi import APIRouter
 from app.api.v1.routes import auth, tenants, themes, restaurants, menu, orders
-from app.api.v1.routes import payment, geocode, staff, reviews, cart
+from app.api.v1.routes import payment, geocode, staff, reviews, cart, addresses
 
 api_router = APIRouter()
 
@@ -39,6 +39,9 @@ api_router.include_router(reviews.router, prefix="/reviews", tags=["Reviews"])
 
 # Cart
 api_router.include_router(cart.router, prefix="/cart", tags=["Cart"])
+
+# Addresses
+api_router.include_router(addresses.router, prefix="/addresses", tags=["Addresses"])
 
 
 @api_router.get("/ping", tags=["Health"])
